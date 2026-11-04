@@ -27,7 +27,9 @@ import java.util.Arrays;
 import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.LinkedHashSet;
 import java.util.Map;
+import java.util.Set;
 import javax.crypto.Cipher;
 import javax.crypto.KeyAgreement;
 import javax.crypto.Mac;
@@ -49,15 +51,23 @@ final class WebPush {
     private final ECPrivateKey vapidPrivada;
     private final String subject;
     private final List<Suscripcion> suscripciones;
+    private final Suscriptores remoto;
+    private final Set<String> vencidas = new LinkedHashSet<>();
 
-    private WebPush(byte[] vapidPublica, ECPrivateKey vapidPrivada, String subject, List<Suscripcion> suscripciones) {
+    private WebPush(byte[] vapidPublica, ECPrivateKey vapidPrivada, String subject,
+                    List<Suscripcion> suscripciones, Suscriptores remoto) {
         this.vapidPublica = vapidPublica;
         this.vapidPrivada = vapidPrivada;
         this.subject = subject;
         this.suscripciones = suscripciones;
+        this.remoto = remoto;
     }
 
-    /** Lee claves y suscripciones de los secretos de GitHub. Devuelve null si falta algo. */
+    /**
+     * Lee las claves de los secretos de GitHub y junta las suscripciones: las que se registraron
+     * solas desde la app (Worker de Cloudflare) más las cargadas a mano en PUSH_SUBSCRIPTIONS.
+     * Devuelve null si falta algo.
+     */
     static WebPush desdeEntorno() throws GeneralSecurityException {
         String pub = Config.env("VAPID_PUBLIC_KEY", "");
         String priv = Config.env("VAPID_PRIVATE_KEY", "");
@@ -65,16 +75,37 @@ final class WebPush {
             System.err.println("Faltan los secretos VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY: no se envía nada.");
             return null;
         }
-        List<Suscripcion> subs = suscripciones(Config.env("PUSH_SUBSCRIPTIONS", ""));
-        if (subs.isEmpty()) {
-            System.err.println("No hay suscripciones (secreto PUSH_SUBSCRIPTIONS): activá los avisos en la app.");
+        Map<String, Suscripcion> unicas = new LinkedHashMap<>();
+        Suscriptores remoto = Suscriptores.desdeEntorno();
+        if (remoto != null) {
+            try {
+                for (Suscripcion s : remoto.descargar()) unicas.put(s.endpoint(), s);
+            } catch (Exception e) {
+                System.err.println("No se pudieron leer los suscriptores del Worker: " + e.getMessage());
+            }
+        }
+        for (Suscripcion s : suscripciones(Config.env("PUSH_SUBSCRIPTIONS", ""))) unicas.putIfAbsent(s.endpoint(), s);
+        if (unicas.isEmpty()) {
+            System.err.println("No hay suscripciones todavía: activá los avisos en la app.");
             return null;
         }
+        System.out.println("Dispositivos suscriptos: " + unicas.size());
         String subject = Config.env("VAPID_SUBJECT", "mailto:clima-cordoba@users.noreply.github.com");
-        return new WebPush(b64(pub), clavePrivada(b64(priv)), subject, subs);
+        return new WebPush(b64(pub), clavePrivada(b64(priv)), subject, new ArrayList<>(unicas.values()), remoto);
     }
 
-    /** Acepta una suscripción (objeto JSON) o varias (lista JSON), tal como las copia la app. */
+    /** Borra del Worker los dispositivos que desinstalaron la app o desactivaron los avisos. */
+    void limpiarVencidas() {
+        if (vencidas.isEmpty() || remoto == null) return;
+        try {
+            remoto.borrar(vencidas);
+            System.out.println("Suscripciones vencidas borradas: " + vencidas.size());
+        } catch (Exception e) {
+            System.err.println("No se pudieron borrar las suscripciones vencidas: " + e.getMessage());
+        }
+    }
+
+    /** Acepta una suscripción (objeto JSON) o varias (lista JSON), tal como las genera el navegador. */
     static List<Suscripcion> suscripciones(String json) {
         List<Suscripcion> lista = new ArrayList<>();
         if (json.isBlank()) return lista;
@@ -106,8 +137,8 @@ final class WebPush {
                     alguno = true;
                     System.out.println("  -> enviado a " + disp);
                 } else if (estado == 404 || estado == 410) {
-                    System.err.println("  -> " + disp + ": suscripción vencida (" + estado
-                            + "). Volvé a activar los avisos en la app y actualizá PUSH_SUBSCRIPTIONS.");
+                    vencidas.add(s.endpoint());
+                    System.err.println("  -> " + disp + ": suscripción vencida (" + estado + "), se borra.");
                 } else {
                     System.err.println("  -> " + disp + ": error HTTP " + estado);
                 }

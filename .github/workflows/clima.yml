@@ -42,6 +42,8 @@ jobs:
           VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
           VAPID_SUBJECT: ${{ secrets.VAPID_SUBJECT }}
           PUSH_SUBSCRIPTIONS: ${{ secrets.PUSH_SUBSCRIPTIONS }}
+          SUSCRIPCIONES_URL: https://clima-avisos.juliboschi003.workers.dev
+          SUSCRIPCIONES_TOKEN: ${{ secrets.SUSCRIPCIONES_TOKEN }}
 
       - name: Guardar estado y alertas
         if: always()

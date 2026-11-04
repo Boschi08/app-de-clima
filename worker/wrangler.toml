@@ -1,0 +1,8 @@
+name = "clima-avisos"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+
+# Creado con: wrangler kv namespace create SUSCRIPCIONES
+[[kv_namespaces]]
+binding = "SUSCRIPCIONES"
+id = "cee9340207d046d2b2dd29b965ab08d0"

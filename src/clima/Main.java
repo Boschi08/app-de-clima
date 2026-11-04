@@ -83,6 +83,7 @@ public final class Main {
             }
         }
 
+        if (push != null) push.limpiarVencidas();
         if (enviar) estado.guardar();
     }
 
@@ -124,7 +125,9 @@ public final class Main {
         Aviso a = new Aviso("prueba", "✅ ¡Avisos funcionando!",
                 "Así te van a llegar el resumen de las 9 y las alertas de granizo y lluvia fuerte.",
                 LocalDate.now());
-        if (!push.enviar(a)) System.exit(1);
+        boolean llego = push.enviar(a);
+        push.limpiarVencidas();
+        if (!llego) System.exit(1);
     }
 
     private static void claves() throws Exception {

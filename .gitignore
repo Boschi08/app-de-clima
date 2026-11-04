@@ -1,4 +1,8 @@
 # Claves privadas: nunca se suben
 claves-vapid.txt
 out/
+node_modules/
+.wrangler/
+cargar-secretos.ps1
+conectar-servidor.ps1
 *.class

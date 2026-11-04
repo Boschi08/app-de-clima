@@ -226,24 +226,32 @@ async function pintarNotificaciones() {
     return;
   }
 
-  const codigo = JSON.stringify(sub);
-  caja.innerHTML = `<p>✅ Avisos activados en este dispositivo.</p>
-    <details ${localStorage.getItem("codigoCopiado") ? "" : "open"}>
-      <summary>Código de este dispositivo (se configura una sola vez)</summary>
-      <p style="margin-top:8px;font-size:14px">Copialo y pegalo en GitHub, en el secreto <b>PUSH_SUBSCRIPTIONS</b>. Si querés avisos en varios celulares, poné los códigos entre corchetes y separados por comas: <code>[código1, código2]</code>.</p>
-      <textarea id="codigo" readonly>${escapar(codigo)}</textarea>
-      <button class="boton" id="copiar" type="button">📋 Copiar código</button>
-    </details>`;
-  $("copiar").addEventListener("click", async () => {
-    try {
-      await navigator.clipboard.writeText(codigo);
-    } catch {
-      $("codigo").select();
-      document.execCommand("copy");
-    }
-    try { localStorage.setItem("codigoCopiado", "1"); } catch {}
-    $("copiar").textContent = "✅ Copiado";
-  });
+  const registrada = await registrar(sub);
+  caja.innerHTML = registrada
+    ? `<p>✅ Avisos activados en este dispositivo. Te llega el resumen a las 9 y las alertas cuando haga falta.</p>
+       <button class="boton secundario" id="desactivar" type="button">Desactivar avisos</button>`
+    : `<p>⚠️ Los avisos están activados pero no se pudieron registrar en el servidor. Revisá la conexión.</p>
+       <button class="boton" id="reintentar" type="button">Reintentar</button>`;
+  if (registrada) $("desactivar").addEventListener("click", () => desactivar(sub));
+  else $("reintentar").addEventListener("click", pintarNotificaciones);
+}
+
+/** Avisa al servidor que este dispositivo quiere recibir avisos. Se repite una vez por semana por las dudas. */
+async function registrar(sub) {
+  const marca = sub.endpoint + "|" + Math.floor(Date.now() / (7 * 864e5));
+  try { if (localStorage.getItem("registrado") === marca) return true; } catch {}
+  try {
+    const resp = await fetch(C.servidor + "/suscribir", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(sub)
+    });
+    if (!resp.ok) return false;
+    try { localStorage.setItem("registrado", marca); } catch {}
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 async function activar() {
@@ -255,6 +263,20 @@ async function activar() {
   } catch (e) {
     alert("No se pudieron activar los avisos: " + e.message);
   }
+  pintarNotificaciones();
+}
+
+async function desactivar(sub) {
+  if (!confirm("¿Dejar de recibir avisos del clima en este dispositivo?")) return;
+  try {
+    await fetch(C.servidor + "/desuscribir", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ endpoint: sub.endpoint })
+    });
+  } catch {}
+  await sub.unsubscribe();
+  try { localStorage.removeItem("registrado"); } catch {}
   pintarNotificaciones();
 }
 

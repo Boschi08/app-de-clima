@@ -38,11 +38,11 @@ final class Analisis {
 
     // ---------- resumen diario ----------
 
-    static Aviso resumenDiario(Config cfg, Pronostico p, List<Smn.Alerta> smn, LocalDate hoy) {
+    static Aviso resumenDiario(Lugar lugar, Pronostico p, List<Smn.Alerta> smn, LocalDate hoy) {
         Dia d = p.dia(hoy).orElseThrow(() -> new IllegalStateException("Sin pronóstico para " + hoy));
         List<Hora> horas = p.entre(hoy.atStartOfDay(), hoy.plusDays(1).atStartOfDay());
 
-        String titulo = emoji(d.codigo(), true) + " Hoy en " + cfg.lugar() + ": "
+        String titulo = emoji(d.codigo(), true) + " Hoy en " + lugar.nombre() + ": "
                 + grados(d.min()) + " / " + grados(d.max());
 
         List<String> lineas = new ArrayList<>();

@@ -1,7 +1,7 @@
 {
-  "name": "Clima Córdoba",
+  "name": "Clima",
   "short_name": "Clima",
-  "description": "Pronóstico, resumen diario y alertas de granizo y lluvia fuerte",
+  "description": "Pronóstico de 16 días, resumen diario y alertas de granizo y lluvia fuerte",
   "lang": "es-AR",
   "start_url": "./",
   "scope": "./",

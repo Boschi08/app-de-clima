@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Clima Córdoba</title>
+  <title>Clima</title>
   <meta name="theme-color" content="#1d4f91">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
@@ -17,7 +17,10 @@
 <body class="cielo-dia">
   <main>
     <header id="actual" class="tarjeta-transparente">
-      <div class="lugar" id="lugar">Córdoba</div>
+      <button class="boton-lugar" id="elegir-lugar" type="button" aria-haspopup="dialog">
+        <span id="lugar">Córdoba</span> <span class="flecha" aria-hidden="true">▾</span>
+      </button>
+      <div class="region" id="region"></div>
       <div class="temp-grande" id="temp">--°</div>
       <div class="estado" id="estado">Cargando…</div>
       <div class="maxmin" id="maxmin"></div>
@@ -32,7 +35,7 @@
     </section>
 
     <section class="tarjeta">
-      <h2>Próximos 7 días</h2>
+      <h2>Próximos 16 días <span class="ayuda">· tocá un día para ver el detalle</span></h2>
       <div id="dias"></div>
     </section>
 
@@ -49,6 +52,34 @@
       <p>Pronóstico: <a href="https://open-meteo.com/">Open-Meteo</a> · Alertas: <a href="https://www.smn.gob.ar/alertas">SMN</a></p>
     </footer>
   </main>
+
+  <!-- Elegir lugar -->
+  <div class="hoja oculto" id="hoja-lugares" role="dialog" aria-modal="true" aria-labelledby="titulo-lugares">
+    <div class="hoja-contenido">
+      <div class="hoja-cabecera">
+        <h3 id="titulo-lugares">Lugares</h3>
+        <button class="cerrar" type="button" data-cerrar aria-label="Cerrar">✕</button>
+      </div>
+      <input id="buscar" type="search" placeholder="Buscar ciudad o pueblo…" autocomplete="off" enterkeyhint="search">
+      <div id="resultados"></div>
+      <button class="boton secundario ancho" id="mi-ubicacion" type="button">📍 Usar mi ubicación</button>
+      <h4>Sugeridos</h4>
+      <div class="chips" id="sugeridos"></div>
+      <h4>Mis lugares</h4>
+      <div id="mis-lugares"></div>
+    </div>
+  </div>
+
+  <!-- Detalle de un día -->
+  <div class="hoja oculto" id="hoja-dia" role="dialog" aria-modal="true" aria-labelledby="titulo-dia">
+    <div class="hoja-contenido">
+      <div class="hoja-cabecera">
+        <h3 id="titulo-dia"></h3>
+        <button class="cerrar" type="button" data-cerrar aria-label="Cerrar">✕</button>
+      </div>
+      <div id="detalle-dia"></div>
+    </div>
+  </div>
 
   <script src="config.js"></script>
   <script src="app.js"></script>

@@ -42,7 +42,8 @@ import javax.crypto.spec.SecretKeySpec;
  */
 final class WebPush {
 
-    record Suscripcion(String endpoint, String p256dh, String auth) {}
+    /** {@code lugar}: de dónde quiere los avisos ese dispositivo (null = lugar por defecto). */
+    record Suscripcion(String endpoint, String p256dh, String auth, Lugar lugar) {}
 
     private static final ECParameterSpec P256 = parametrosP256();
     private static final SecureRandom AZAR = new SecureRandom();
@@ -114,13 +115,31 @@ final class WebPush {
         for (Object o : elementos) {
             Map<String, Object> s = Json.obj(o);
             Map<String, Object> keys = Json.obj(s.get("keys"));
-            lista.add(new Suscripcion(Json.str(s.get("endpoint")), Json.str(keys.get("p256dh")), Json.str(keys.get("auth"))));
+            lista.add(new Suscripcion(Json.str(s.get("endpoint")), Json.str(keys.get("p256dh")),
+                    Json.str(keys.get("auth")), lugar(s.get("lugar"))));
         }
         return lista;
     }
 
+    private static Lugar lugar(Object o) {
+        Map<String, Object> m = Json.obj(o);
+        if (!(m.get("lat") instanceof Number lat) || !(m.get("lon") instanceof Number lon)) return null;
+        if (Math.abs(lat.doubleValue()) > 90 || Math.abs(lon.doubleValue()) > 180) return null;
+        String nombre = Json.str(m.get("nombre")).trim();
+        return new Lugar(nombre.isEmpty() ? "tu lugar" : nombre, lat.doubleValue(), lon.doubleValue());
+    }
+
+    List<Suscripcion> suscripciones() {
+        return suscripciones;
+    }
+
     /** Manda el aviso a todos los dispositivos. true si llegó a al menos uno. */
     boolean enviar(Analisis.Aviso aviso) {
+        return enviar(aviso, suscripciones);
+    }
+
+    /** Manda el aviso a esos dispositivos. true si llegó a al menos uno. */
+    boolean enviar(Analisis.Aviso aviso, List<Suscripcion> destinos) {
         Map<String, Object> datos = new LinkedHashMap<>();
         datos.put("title", aviso.titulo());
         datos.put("body", aviso.cuerpo());
@@ -129,7 +148,7 @@ final class WebPush {
         byte[] payload = Json.escribir(datos).getBytes(StandardCharsets.UTF_8);
 
         boolean alguno = false;
-        for (Suscripcion s : suscripciones) {
+        for (Suscripcion s : destinos) {
             String disp = URI.create(s.endpoint()).getHost();
             try {
                 int estado = enviar(s, payload);

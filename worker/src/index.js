@@ -99,7 +99,19 @@ function validar(s) {
   const { p256dh, auth } = s.keys;
   if (typeof p256dh !== "string" || typeof auth !== "string" || !b64.test(p256dh) || !b64.test(auth)) return null;
   if (p256dh.length < 80 || p256dh.length > 100 || auth.length < 16 || auth.length > 32) return null;
-  return { endpoint: s.endpoint, keys: { p256dh, auth } };
+  const sub = { endpoint: s.endpoint, keys: { p256dh, auth } };
+  const lugar = validarLugar(s.lugar);
+  if (lugar) sub.lugar = lugar;
+  return sub;
+}
+
+/** Lugar del que el dispositivo quiere avisos. Si no viene o es inválido, el servidor usa Córdoba. */
+function validarLugar(l) {
+  if (!l || typeof l !== "object") return null;
+  const lat = Number(l.lat), lon = Number(l.lon);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return null;
+  const nombre = String(l.nombre ?? "").replace(/[\u0000-\u001f<>]/g, "").trim().slice(0, 60) || "Mi lugar";
+  return { nombre, lat: Math.round(lat * 1e4) / 1e4, lon: Math.round(lon * 1e4) / 1e4 };
 }
 
 async function leerJson(req) {

@@ -1,5 +1,5 @@
 // Service worker: funciona sin conexión y muestra las notificaciones push.
-const CACHE = "clima-v2";
+const CACHE = "clima-v3";
 const ARCHIVOS = ["./", "index.html", "estilos.css", "app.js", "config.js", "manifest.webmanifest",
   "icon-180.png", "icon-192.png", "icon-512.png"];
 

@@ -1,10 +1,9 @@
 package clima;
 
 import java.io.IOException;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -19,7 +18,8 @@ final class OpenMeteo {
     record Dia(LocalDate fecha, int codigo, double max, double min, double lluvia, double probLluvia,
                double rafagasMax, double uvMax) {}
 
-    record Pronostico(List<Hora> horas, List<Dia> dias) {
+    /** {@code zona}: huso horario del lugar (lo informa Open-Meteo). */
+    record Pronostico(List<Hora> horas, List<Dia> dias, ZoneId zona) {
 
         Optional<Dia> dia(LocalDate fecha) {
             return dias.stream().filter(d -> d.fecha().equals(fecha)).findFirst();
@@ -35,10 +35,10 @@ final class OpenMeteo {
 
     private OpenMeteo() {}
 
-    static Pronostico descargar(Config cfg) throws IOException, InterruptedException {
+    static Pronostico descargar(Lugar lugar) throws IOException, InterruptedException {
         String url = "https://api.open-meteo.com/v1/forecast"
-                + "?latitude=" + cfg.lat() + "&longitude=" + cfg.lon()
-                + "&timezone=" + URLEncoder.encode(cfg.zona().getId(), StandardCharsets.UTF_8)
+                + "?latitude=" + lugar.lat() + "&longitude=" + lugar.lon()
+                + "&timezone=auto"
                 + "&forecast_days=3"
                 + "&hourly=temperature_2m,apparent_temperature,precipitation_probability,precipitation,"
                 + "weather_code,wind_gusts_10m,cape,is_day"
@@ -76,7 +76,13 @@ final class OpenMeteo {
                     n(d, "wind_gusts_10m_max", i),
                     n(d, "uv_index_max", i)));
         }
-        return new Pronostico(horas, dias);
+        ZoneId zona;
+        try {
+            zona = ZoneId.of(Json.str(raiz.get("timezone")));
+        } catch (Exception e) {
+            zona = Config.desdeEntorno().zona();
+        }
+        return new Pronostico(horas, dias, zona);
     }
 
     /** Valor numérico i-ésimo de una serie; NaN si falta. */

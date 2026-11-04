@@ -20,7 +20,7 @@ import org.w3c.dom.NodeList;
 
 /**
  * Alertas y avisos oficiales del Servicio Meteorológico Nacional (formato CAP).
- * Cada alerta trae los polígonos de la zona afectada: nos quedamos con las que contienen nuestro punto.
+ * Cada alerta trae los polígonos de la zona afectada: con eso se sabe a qué lugares les toca.
  */
 final class Smn {
 
@@ -30,22 +30,35 @@ final class Smn {
             Pattern.compile("(https?://ssl\\.smn\\.gob\\.ar/feeds/CAP/[^\"'<>\\s]+\\.xml)");
     private static final Locale ES = Locale.forLanguageTag("es-AR");
 
+    /** {@code poligonos}: cada uno como "lat,lon lat,lon ...". */
     record Alerta(String evento, String titulo, String descripcion, String nivel,
-                  OffsetDateTime desde, OffsetDateTime hasta) {}
+                  OffsetDateTime desde, OffsetDateTime hasta, List<String> poligonos) {
+
+        boolean afecta(double lat, double lon) {
+            for (String p : poligonos) if (dentro(p, lat, lon)) return true;
+            return false;
+        }
+    }
 
     private Smn() {}
 
-    static List<Alerta> alertasPara(Config cfg, OffsetDateTime ahora) throws IOException, InterruptedException {
+    /** Todas las alertas vigentes del país. */
+    static List<Alerta> vigentes(OffsetDateTime ahora) throws IOException, InterruptedException {
         Set<String> urls = new LinkedHashSet<>();
         Matcher m = ENLACE.matcher(Http.get(LISTADO));
         while (m.find()) urls.add(m.group(1));
 
-        // La misma alerta puede venir en varios archivos (un polígono por archivo).
+        // La misma alerta viene repartida en varios archivos (un polígono por archivo): se juntan.
         Map<String, Alerta> unicas = new LinkedHashMap<>();
         for (String url : urls) {
             try {
-                for (Alerta a : leer(Http.getBytes(url), cfg, ahora)) {
-                    unicas.putIfAbsent(a.evento().toLowerCase(ES) + "|" + a.hasta(), a);
+                for (Alerta a : leer(Http.getBytes(url), ahora)) {
+                    unicas.merge(a.evento().toLowerCase(ES) + "|" + a.hasta(), a, (vieja, nueva) -> {
+                        List<String> todos = new ArrayList<>(vieja.poligonos());
+                        for (String p : nueva.poligonos()) if (!todos.contains(p)) todos.add(p);
+                        return new Alerta(vieja.evento(), vieja.titulo(), vieja.descripcion(), vieja.nivel(),
+                                vieja.desde(), vieja.hasta(), todos);
+                    });
                 }
             } catch (Exception e) {
                 System.err.println("SMN: no se pudo leer " + url + " (" + e.getMessage() + ")");
@@ -54,7 +67,7 @@ final class Smn {
         return new ArrayList<>(unicas.values());
     }
 
-    static List<Alerta> leer(byte[] xml, Config cfg, OffsetDateTime ahora) throws Exception {
+    static List<Alerta> leer(byte[] xml, OffsetDateTime ahora) throws Exception {
         DocumentBuilderFactory f = DocumentBuilderFactory.newInstance();
         f.setNamespaceAware(true);
         f.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
@@ -74,7 +87,11 @@ final class Smn {
             Element info = (Element) infos.item(i);
             OffsetDateTime hasta = fecha(texto(info, "expires"));
             if (hasta != null && hasta.isBefore(ahora)) continue;
-            if (!afecta(info, cfg.lat(), cfg.lon())) continue;
+
+            List<String> poligonos = new ArrayList<>();
+            NodeList nodos = info.getElementsByTagNameNS("*", "polygon");
+            for (int k = 0; k < nodos.getLength(); k++) poligonos.add(simplificar(nodos.item(k).getTextContent()));
+            if (poligonos.isEmpty()) continue; // sin zona no se puede saber a quién le toca
 
             OffsetDateTime desde = fecha(texto(info, "onset"));
             if (desde == null) desde = enviado;
@@ -84,22 +101,21 @@ final class Smn {
             String titulo = titular.toUpperCase(ES).startsWith("AVISO")
                     ? oracion(titular)
                     : "Alerta " + nivel + " por " + evento.toLowerCase(ES);
-            salida.add(new Alerta(evento, titulo, oracion(texto(info, "description")), nivel, desde, hasta));
+            salida.add(new Alerta(evento, titulo, oracion(texto(info, "description")), nivel, desde, hasta, poligonos));
         }
         return salida;
     }
 
-    /** ¿El punto cae dentro de alguno de los polígonos de la alerta? */
-    private static boolean afecta(Element info, double lat, double lon) {
-        NodeList poligonos = info.getElementsByTagNameNS("*", "polygon");
-        if (poligonos.getLength() == 0) {
-            String zona = sinAcentos(texto(info, "areaDesc"));
-            return zona.contains("CORDOBA") && zona.contains("CAPITAL");
+    /** Redondea a 2 decimales (~1 km) y saca puntos repetidos: el archivo público queda mucho más chico. */
+    private static String simplificar(String poligono) {
+        List<String> puntos = new ArrayList<>();
+        for (String par : poligono.trim().split("\\s+")) {
+            String[] c = par.split(",");
+            if (c.length < 2) continue;
+            String p = String.format(Locale.ROOT, "%.2f,%.2f", Double.parseDouble(c[0]), Double.parseDouble(c[1]));
+            if (puntos.isEmpty() || !puntos.get(puntos.size() - 1).equals(p)) puntos.add(p);
         }
-        for (int i = 0; i < poligonos.getLength(); i++) {
-            if (dentro(poligonos.item(i).getTextContent(), lat, lon)) return true;
-        }
-        return false;
+        return String.join(" ", puntos);
     }
 
     /** Ray casting sobre "lat,lon lat,lon ...". */

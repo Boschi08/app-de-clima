@@ -1,11 +1,13 @@
-# Clima Córdoba
+# Clima
 
 App del clima para iPhone con:
 
-- 📱 Pronóstico actual, hora por hora y de 7 días.
+- 📍 Cualquier lugar: buscás ciudades o pueblos (Carlos Paz, La Cumbrecita, Río Cuarto…), usás el GPS y guardás favoritos.
+- 📱 Pronóstico actual, hora por hora y de **16 días**, con el detalle hora por hora de cada día.
 - ☀️ Resumen del día como notificación todos los días a las ~9:00.
 - 🧊 Avisos de **granizo**, **lluvia fuerte**, **tormentas** y **viento fuerte** para las próximas 12 horas.
-- ⚠️ Alertas oficiales del **SMN**, solo las que incluyen a Córdoba.
+- ⚠️ Alertas oficiales del **SMN** que incluyen al lugar.
+- 🔔 Cada celular elige de qué lugar recibir los avisos.
 
 **Para usarla:** abrí <https://boschi08.github.io/app-de-clima/> en Safari, tocá **Compartir ⬆️ → Agregar a inicio**, abrí **Clima** desde el ícono y tocá **🔔 Activar avisos**. Nada más. Se puede compartir el link con quien quieras: cada uno activa sus avisos solo.
 
@@ -15,15 +17,16 @@ Todo gratis: **GitHub Actions** corre el programa Java cada 15 minutos, **GitHub
 
 ```
 App en el iPhone (docs/, GitHub Pages)
-  └─ "Activar avisos" → se registra sola en el Worker
+  └─ "Activar avisos" → se registra sola en el Worker, con el lugar elegido
 
 Cloudflare Worker (worker/)
-  └─ Guarda las suscripciones (KV). Solo GitHub puede leer la lista (token).
+  └─ Guarda las suscripciones y el lugar de cada una (KV). Solo GitHub puede leer la lista (token).
 
 GitHub Actions (cada 15 min)
   └─ Java (src/clima)
        ├─ Open-Meteo  → pronóstico (combina modelos ECMWF, GFS, ICON…)
-       ├─ SMN (CAP)   → alertas oficiales cuyo polígono contiene a Córdoba
+       ├─ Agrupa      → un pronóstico por cada lugar elegido (hasta 60 lugares)
+       ├─ SMN (CAP)   → alertas oficiales cuyo polígono contiene a cada lugar
        ├─ Analiza     → resumen de las 9 + riesgos de las próximas 12 h
        ├─ Worker      → lista de dispositivos (borra los que desinstalaron la app)
        └─ Web Push    → notificación a cada dispositivo (cifrada, RFC 8291)
@@ -37,9 +40,9 @@ Umbrales de aviso (en `src/clima/Analisis.java` y `docs/app.js`):
 | Lluvia fuerte  | ≥ 10 mm en una hora o ≥ 25 mm en 3 horas (probabilidad ≥ 40 %)       |
 | Tormentas      | Código de tormenta eléctrica                                         |
 | Viento         | Ráfagas ≥ 70 km/h                                                    |
-| SMN            | Cualquier alerta o aviso vigente que incluya a Córdoba               |
+| SMN            | Cualquier alerta o aviso vigente que incluya al lugar                |
 
-Cada aviso se manda **una sola vez por día y tipo**. Lo enviado queda en `state/estado.json`.
+Cada aviso se manda **una sola vez por día, tipo y lugar**. Lo enviado queda en `state/estado.json`.
 
 ## Configuración (ya hecha)
 
@@ -70,5 +73,6 @@ Otros modos: `resumen` (manda el resumen ya), `prueba` (notificación de prueba)
 - GitHub puede atrasar las corridas programadas unos minutos, así que el resumen llega entre las 8:50 y las ~9:15.
 - GitHub pausa los workflows programados de repos sin actividad por 60 días. Los commits automáticos del estado suelen alcanzar; si alguna vez se pausa, reactivalo en la pestaña **Actions**.
 - El Worker acepta hasta 500 dispositivos (`MAXIMO_SUSCRIPCIONES` en `worker/src/index.js`).
-- Los avisos son para Córdoba: quien use la app en otra ciudad recibe el clima de Córdoba.
+- Más allá de 7 días el pronóstico es orientativo: la app lo marca así.
+- Buscador de lugares: geocoding de Open-Meteo (sin clave).
 - Ningún servicio puede predecir el granizo con exactitud. El aviso marca **riesgo alto**, y las alertas del SMN son la fuente oficial.

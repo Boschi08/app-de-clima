@@ -1,0 +1,56 @@
+name: Clima Córdoba
+
+on:
+  schedule:
+    # Cada 15 minutos (horario UTC). Se evita el minuto 0 porque GitHub se satura a la hora en punto.
+    # El resumen de las 9 (Córdoba, UTC-3) sale en la primera corrida desde las 8:50.
+    - cron: "7,22,37,52 * * * *"
+  workflow_dispatch:
+    inputs:
+      modo:
+        description: "revisar = normal · resumen = mandar el resumen ahora · prueba = notificación de prueba"
+        type: choice
+        options: [revisar, resumen, prueba]
+        default: revisar
+
+permissions:
+  contents: write
+
+concurrency:
+  group: clima
+  cancel-in-progress: false
+
+jobs:
+  clima:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Compilar
+        run: javac -encoding UTF-8 -d out src/clima/*.java
+
+      - name: Revisar el clima y avisar
+        run: java -cp out clima.Main ${{ inputs.modo || 'revisar' }}
+        env:
+          VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          VAPID_SUBJECT: ${{ secrets.VAPID_SUBJECT }}
+          PUSH_SUBSCRIPTIONS: ${{ secrets.PUSH_SUBSCRIPTIONS }}
+
+      - name: Guardar estado y alertas
+        if: always()
+        run: |
+          git config user.name "clima-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add state docs/datos
+          if ! git diff --cached --quiet; then
+            git commit -m "Actualizar estado del clima"
+            git pull --rebase
+            git push
+          fi

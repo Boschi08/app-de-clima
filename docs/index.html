@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Clima Córdoba</title>
+  <meta name="theme-color" content="#1d4f91">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Clima">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icon-180.png">
+  <link rel="icon" href="icon-192.png">
+  <link rel="stylesheet" href="estilos.css">
+</head>
+<body class="cielo-dia">
+  <main>
+    <header id="actual" class="tarjeta-transparente">
+      <div class="lugar" id="lugar">Córdoba</div>
+      <div class="temp-grande" id="temp">--°</div>
+      <div class="estado" id="estado">Cargando…</div>
+      <div class="maxmin" id="maxmin"></div>
+      <div class="detalles" id="detalles"></div>
+    </header>
+
+    <section id="avisos" aria-live="polite"></section>
+
+    <section class="tarjeta">
+      <h2>Próximas 24 horas</h2>
+      <div class="horas" id="horas"></div>
+    </section>
+
+    <section class="tarjeta">
+      <h2>Próximos 7 días</h2>
+      <div id="dias"></div>
+    </section>
+
+    <section class="tarjeta" id="extra"></section>
+
+    <section class="tarjeta" id="notificaciones">
+      <h2>Avisos al celular</h2>
+      <div id="noti-contenido">…</div>
+    </section>
+
+    <footer>
+      <button id="actualizar" type="button">↻ Actualizar</button>
+      <p id="actualizado"></p>
+      <p>Pronóstico: <a href="https://open-meteo.com/">Open-Meteo</a> · Alertas: <a href="https://www.smn.gob.ar/alertas">SMN</a></p>
+    </footer>
+  </main>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
